@@ -423,12 +423,15 @@ Panel {
     setDisplayBrightness(name, level + delta)
   }
 
-  function showBrightnessOsd(percent) {
-    if (!bar || !bar.shell) return
-    bar.shell.summon("omarchy.osd", JSON.stringify({
-      icon: "brightness",
-      value: percent
-    }))
+  // The bar icon's wheel steps from the live level, the way the brightness
+  // keys do: brightnessPercent is only read while the panel is open, so a
+  // level the keys or a script set in between would be stepped from the
+  // wrong place. A notch while one is still applying is dropped, as the
+  // script drops an overlapping key press.
+  function stepBrightness(step) {
+    if (wheelBrightnessProc.running) return
+    wheelBrightnessProc.command = ["omarchy-brightness-display", "--monitor", root.focusedMonitor, step]
+    wheelBrightnessProc.running = true
   }
 
   function normalizeScale(scale) {
@@ -751,6 +754,10 @@ Panel {
     }
   }
 
+  Process {
+    id: wheelBrightnessProc
+  }
+
   Timer {
     id: mirrorRecheck
     interval: 400
@@ -816,8 +823,7 @@ Panel {
       var wheel = Util.wheelSteps(root.wheelAccumulator, delta)
       root.wheelAccumulator = wheel.remainder
       if (wheel.steps === 0) return
-      root.setBrightness(root.brightnessPercent + wheel.steps * 5)
-      root.showBrightnessOsd(root.brightnessPercent)
+      root.stepBrightness(wheel.steps > 0 ? "+5%" : "5%-")
     }
   }
 
